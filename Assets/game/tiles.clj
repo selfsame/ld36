@@ -8,6 +8,7 @@
     pdfn.core
     clojure.pprint))
 
+(declare output)
 
 (defpdfn clone-tile)
 (pdfn clone-tile [x z m]
@@ -53,7 +54,44 @@
   (reset! SELECTED o))
 (pdfn click [x z o os otype]
   {otype (is* :core)}
-  (swap! SCORE inc)
+  
+  (output o os otype)
   (timeline* 
     (tween {:material {:color (color 1 0 0)}} (first (children o)) 0.2)
     (tween {:material {:color (color 1 1 1)}} (first (children o)) 0.2)))
+
+
+(defpdfn input)
+(pdfn input [p ps o os otype])
+(pdfn input [p ps o os otype]
+  {otype (is* :$)}
+  (timeline* 
+    (tween {:material {:color (color 1 0.7 0)}} (first (children o)) 0.2)
+    (tween {:material {:color (color 1 1 1)}} (first (children o)) 0.2))
+  (destroy p)
+  (swap! SCORE inc))
+(pdfn input [p ps o os otype]
+  {otype (is* :splitter)}
+  (set-state! p :dir (:rotation os)))
+
+(defn update-pellet [o]
+  (timeline* :loop
+    (tween {:local {:position (v3+ (>v3 o) (cardinal->pos (state o :dir)))}} o 0.3)
+   #(let [pos (mapv int [(X o) (Z o)])]
+      (if-let [tile (:obj (get @GRID pos))]
+        (if (state tile :type)
+            (input o (state o) tile (state tile) (state tile :type)))
+        (destroy o))
+      nil)))
+
+(defn make-pellet [[x z] dir]
+  (let [o (clone! :pellet (v3 x 1 z))]
+    (timeline* (tween {:material {:color (color 1 0 0)}} o 0.1))
+    (set-state! o :dir dir)
+    (update-pellet o)))
+
+(defpdfn output)
+(pdfn output [o os otype])
+(pdfn output [o os otype]
+  {otype (is* :core)}
+  (mapv (partial make-pellet (state o :tile)) [:n :e :s :w]))

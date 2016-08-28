@@ -9,7 +9,7 @@
   (:require 
     game.tiles))
 
-(declare make-level)
+(declare make-level tile-mouse-enter tile-mouse-exit tile-click)
 
 (defn format-number [n]
   (let [left-pad (apply str (take (- 3 (mod (count (str n)) 3)) (repeat " ")))] 
@@ -96,12 +96,13 @@
         {(mapv - [x z][5 5]) {}})))
   (swap! GRID assoc-in [[0 0]] (:core tile-data))
   (clear-cloned!)
-  (clone! :backdrop)
-  (clone! :cursor)
+  (mapv clone! [:EventSystem :Canvas :camera :sun :backdrop :cursor])
   (let [world (clone! :empty)]
     (set! (.name world) "world")
     (dorun
       (map (partial setup-tile world) @GRID))
     (hook+ world :update #'game.core/update-game)))
 
-(make-level nil)
+'(make-level nil)
+
+'(hook+ (the make-level) :start #'game.core/make-level )

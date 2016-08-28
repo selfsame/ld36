@@ -9,9 +9,15 @@
 
 (def cardinal->euler
   {:n (v3 0 0 0)
-   :e (v3 0 90 0)
+   :e (v3 0 270 0)
    :s (v3 0 180 0)
-   :w (v3 0 270 0)})
+   :w (v3 0 90 0)})
+
+(def cardinal->pos
+  {:n (v3  0  0 -1)
+   :e (v3  1  0  0)
+   :s (v3  0  0  1)
+   :w (v3 -1  0  0)})
 
 (def clockwise {:n :e :e :s :s :w :w :n})
 
