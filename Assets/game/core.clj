@@ -1,15 +1,28 @@
 (ns game.core
 	(:use 
+    tween.pool
+    tween.core
 		arcadia.core
 		arcadia.linear
 		hard.core
     hard.input
-    tween.core
+    
     game.data)
   (:require 
-    game.tiles))
+    game.tiles
+    [arcadia.repl :as repl]))
 
-(declare make-level tile-mouse-enter tile-mouse-exit tile-click)
+(declare make-level tile-mouse-enter tile-mouse-exit tile-click click)
+
+(defn start-repl [go]
+  (repl/start-server 11211))
+
+(defn update-repl [go]
+  (repl/eval-queue))
+
+'(hook+ (the make-level) :start #'game.core/start-repl)
+'(hook+ (the make-level) :update #'game.core/update-repl)
+
 
 (defn format-number [n]
   (let [left-pad (apply str (take (- 3 (mod (count (str n)) 3)) (repeat " ")))] 
@@ -17,8 +30,7 @@
 
 (defn setup-tile [world [[x z] m]]
   (let [o (game.tiles/clone-tile x z m)]
-    (state! o (conj m {
-      :rotation :n}))
+    (state! o (conj {:rotation :n} m))
     (set-state! o :tile [x z])
     (swap! GRID assoc-in [[x z] :obj] o)
     (parent! o world)
@@ -50,29 +62,33 @@
           {:local {:euler (cardinal->euler newdir)}}
           o 0.2 :pow3)) ))))
 
+(defn tile-menu-str []
+  (str "rotate [space]\ndelete [delete]\n\n"
+    (apply str (interpose "\n" 
+    (map 
+      #(str (:type %) " [" (:key %)"]")
+      (filter :key (vals tile-data)))))))
+
 (defn update-game [_]
   (if (key-down? "escape")
     (make-level nil)
     (let [score (the score)]
-      (set! (.text (.* (the score)>Text))
-        (format-number @SCORE))
+      (set! (.text (.* (the score)>Text)) (format-number @SCORE))
+      (set! (.text (.* (the debug)>Text)) (tile-menu-str))
       (if-let [o @SELECTED]
         (do 
           (position! (the cursor) (>v3 o))
           (cond
             (key-down? "delete")
             (replace-tile o {})
-            (key-down? "a")
-            (replace-tile o :$)
-            (key-down? "y") 
-            (replace-tile o :splitter)
             (key-down? "space")
-            (rotate-tile o)))
+            (rotate-tile o))
+          (dorun 
+            (map 
+             #(if (key-down? (:key %)) 
+                  (replace-tile o (:type %))) 
+              (filter :key (vals tile-data)))))
         (position! (the cursor) (v3 0 -1000 0))))))
-
-
-
-
 
 
 (defn tile-click [o]
@@ -103,6 +119,36 @@
       (map (partial setup-tile world) @GRID))
     (hook+ world :update #'game.core/update-game)))
 
-'(make-level nil)
 
-'(hook+ (the make-level) :start #'game.core/make-level )
+(defn ns-wrap [s]
+  (let [rs  (read-string s)
+        nsn (last (take 2 rs))]
+ (str 
+  "(do (if-not (find-ns '"  nsn
+   ") (try (require '" nsn
+    " :reload) (catch Exception e (ns " nsn
+     " )))) (in-ns '"  nsn
+      ") "  s ")")))
+
+(defn lisp [_]
+  (try 
+    (eval (read-string (ns-wrap (slurp "./tween/core.clj"))))
+    (eval (read-string (ns-wrap (slurp "./game/data.clj"))))
+    (eval (read-string (ns-wrap (slurp "./game/tiles.clj"))))
+    (eval (read-string (ns-wrap (slurp "./game/core.clj"))))
+    (make-level nil)
+    (catch Exception e
+      (mapv clone! [:intro :sun :camera]))))
+
+'(hook+ (the make-level) :start #'game.core/lisp)
+'(hook+ (the make-level) :start #'game.core/start-repl)
+'(hook+ (the make-level) :update #'game.core/update-repl)
+
+'(lisp nil)
+
+(defn key-lisp [_] (if (key-down? "r") 
+  (do 
+    (.Enqueue arcadia.repl/work-queue 
+          ["(game.core/lisp nil)" nil nil]))))
+
+'(hook+ (the make-level) :update #'game.core/key-lisp)

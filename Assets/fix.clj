@@ -1,9 +1,10 @@
 (ns fix
   (:use 
+    tween.pool
+    tween.core
     arcadia.core
     arcadia.linear
-    hard.core
-    tween.core)
+    hard.core)
   (:require [arcadia.repl :as repl]))
 
 
@@ -19,11 +20,15 @@
   (clear-cloned!)
   (mapv clone! [:camera :sun :pellet])
   (timeline* :loop
-    #(do (clone! :stone) nil)
+    #(do (destroy (the stone)) false)
     (wait 1.0)
-    #(do (destroy (the stone)) nil)
+    #(do (clone! :stone) false)
     (tween {:local {:scale (v3 10)}} (the pellet) 0.6)
-    (tween {:local {:scale (v3 1)}} (the pellet) 0.6)))
+    (tween {:local {:scale (v3 1)}} (the pellet) 0.6)
+    ))
+
+
+
 
 
 '(prn (macroexpand '(tween {:local {:scale (v3 10)}} (the pellet) 0.1)))
